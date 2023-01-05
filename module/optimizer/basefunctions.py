@@ -27,7 +27,7 @@ def get_QB(theta_temp,Q, beta, lmbd):
 def get_QUBO(X,y, lmbd):
     X = np.asarray(X);y = np.asarray(y)
     Q = np.corrcoef(X.T)
-    if type(Q) != np.array : Q = [[Q]]
+    if type(Q) != np.ndarray : Q = np.array([[Q]])
     beta = get_partial_r2(X,y)
     theta_temp = np.ones((X.shape[1],1))
     return (lmbd * theta_temp.T @ Q @ theta_temp + (1 - lmbd) * beta.T @ theta_temp)[0][0]

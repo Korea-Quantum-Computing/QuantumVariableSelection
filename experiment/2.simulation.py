@@ -17,13 +17,22 @@ import argparse
 import random
 import json
 
+import warnings
+
+def fxn():
+    warnings.warn("deprecated", RuntimeWarning)
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    fxn()
+
 parser = argparse.ArgumentParser(description='Process simulation parameters.')
 parser.add_argument('-n','--number_samples', default = 1000, type = int, help='Number of Samples')
 parser.add_argument('-p','--number_features', default = 100, type = int, help='Number of Features')
 parser.add_argument('-q','--number_influentials', default = 20, type = int, help='Number of Infulential Features')
-parser.add_argument('-e','--epsilon', default = 30, type = int, help='Noise of Samples')
-parser.add_argument('-cov','--covariance_parameter', default = 1, type = int, help='Magnitude of Covariance')
-parser.add_argument('-lmbd','--lmbd', default = 0.1, type = int, help='Hyperparameter Controlling Convariance Mitigation')
+parser.add_argument('-e','--epsilon', default = None, type = float, help='Noise of Samples')
+parser.add_argument('-cov','--covariance_parameter', default = 1, type = float, help='Magnitude of Covariance')
+parser.add_argument('-lmbd','--lmbd', default = 0.1, type = float, help='Hyperparameter Controlling Convariance Mitigation')
 parser.add_argument('-iter','--number_of_test', default = 100, type = int, help='a number of test')
 
 if __name__ == "__main__":
@@ -37,7 +46,11 @@ if __name__ == "__main__":
 
     for ite in range(args.number_of_test):
         beta_coef = np.concatenate([np.random.normal(5,2,args.number_influentials),np.zeros(args.number_features-args.number_influentials)])
-        X,y = bf.generate_dependent_sample(args.number_samples,args.number_features,beta_coef,covariance_parameter=args.covariance_parameter,epsilon=args.epsilon)
+        if args.epsilon == None :
+            epsilon = args.number_influentials*5/3
+        else :
+            epsilon = args.epsilon
+        X,y = bf.generate_dependent_sample(args.number_samples,args.number_features,beta_coef,covariance_parameter=args.covariance_parameter,epsilon=epsilon)
         lmbd = args.lmbd
 
         ga_qubo = opt.GeneticAlgorithm("QUBO")
@@ -45,9 +58,9 @@ if __name__ == "__main__":
         sa_qubo = opt.SimulatedAnnealing("QUBO")
         sa_qubo_result = sa_qubo.optimize(X,y,lmbd,reps=10)
         ga_aic = opt.GeneticAlgorithm(mode = "AIC")
-        ga_aic_result = ga_qubo.optimize(X,y,lmbd)
+        ga_aic_result = ga_aic.optimize(X,y,lmbd)
         sa_aic = opt.SimulatedAnnealing("AIC")
-        sa_aic_result = sa_qubo.optimize(X,y,lmbd,reps=10)
+        sa_aic_result = sa_aic.optimize(X,y,lmbd,reps=10)
 
         X_sa_qubo = X[:,sa_qubo_result.astype(bool)]
         X_ga_qubo = X[:,ga_qubo_result.astype(bool)]
@@ -95,3 +108,6 @@ if __name__ == "__main__":
 
     with open("result/simulation/test_argument"+random_index+".txt", "w") as f:
         json.dump(args.__dict__, f, indent=2)
+    
+    print(result_table)
+    print(args.__dict__)

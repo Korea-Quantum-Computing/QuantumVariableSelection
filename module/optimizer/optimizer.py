@@ -10,6 +10,15 @@ import pandas as pd
 import numpy as np
 from optimizer import basefunctions as bf
 
+import warnings
+
+def fxn():
+    warnings.warn("deprecated", RuntimeWarning)
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    fxn()
+
 class QuantumAnnealing:
     def __init__(self,sampler):
         self.sampler = sampler
@@ -58,7 +67,7 @@ class SimulatedAnnealing:
         schedule_list, k_flip, alpha, tau = self.schedule_list, self.k_flip, self.alpha, self.tau
         theta_list = []
         X = np.asarray(X);y=np.asarray(y)
-        p = X.shape[1]
+        n = X.shape[0];p = X.shape[1]
 
         theta_temp = np.random.randint(2,size=p)
         for j in schedule_list:
@@ -66,8 +75,12 @@ class SimulatedAnnealing:
                 theta_star = bf.flip(k_flip, theta_temp, p)
                 X_star = X[:,theta_star.astype(bool)]
                 X_temp = X[:,theta_temp.astype(bool)]
-                if np.random.rand(1) <= min(1, np.exp((bf.get_aic(X_temp,y)-bf.get_aic(X_star,y))/tau)):
+                comparison = (bf.get_aic(X_temp,y)-bf.get_aic(X_star,y))/tau/n
+                if comparison > 100 : 
                     theta_temp = theta_star
+                else :
+                    if np.random.rand(1) <= min(1, np.exp(comparison)):
+                        theta_temp = theta_star
                 theta_list += [theta_temp]
                 tau = alpha * tau
         
@@ -89,8 +102,12 @@ class SimulatedAnnealing:
         for j in schedule_list:
             for m in range(j):
                 theta_star = bf.flip(k_flip, theta_temp, p)
-                if np.random.rand(1) <= min(1, np.exp((bf.get_QB(theta_temp,Q,-1*beta,lamda)-bf.get_QB(theta_star,Q,-1*beta,lamda))/tau)):
+                comparison = (bf.get_QB(theta_temp,Q,-1*beta,lamda)-bf.get_QB(theta_star,Q,-1*beta,lamda))/tau
+                if comparison > 100 :
                     theta_temp = theta_star
+                else:
+                    if np.random.rand(1) <= min(1, np.exp(comparison)):
+                        theta_temp = theta_star
                 theta_list += [theta_temp]
                 tau = alpha * tau
         
