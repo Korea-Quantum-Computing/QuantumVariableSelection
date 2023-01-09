@@ -104,7 +104,10 @@ if __name__ == "__main__":
 
 
     random_index = str(random.randrange(0,99999)).zfill(5)
+    
     result_table.to_csv("result/simulation/linear_samples"+random_index+".csv")
+
+
 
     with open("result/simulation/test_argument"+random_index+".txt", "w") as f:
         json.dump(args.__dict__, f, indent=2)

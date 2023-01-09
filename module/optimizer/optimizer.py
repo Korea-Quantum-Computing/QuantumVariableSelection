@@ -12,13 +12,6 @@ from optimizer import basefunctions as bf
 
 import warnings
 
-def fxn():
-    warnings.warn("deprecated", RuntimeWarning)
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    fxn()
-
 class QuantumAnnealing:
     def __init__(self,sampler):
         self.sampler = sampler
@@ -61,7 +54,7 @@ class SimulatedAnnealing:
         self.schedule_list, self.k_flip, self.alpha, self.tau, self.reps = schedule_list, k_flip, alpha, tau, reps
         self.mode=mode
     
-    def optimize_aic(self,
+    def _optimize_aic(self,
                 X,y,lamda
                 ):
         schedule_list, k_flip, alpha, tau = self.schedule_list, self.k_flip, self.alpha, self.tau
@@ -89,7 +82,7 @@ class SimulatedAnnealing:
         self.theta_list = theta_list
         return self.result
 
-    def optimize_qubo(self,
+    def _optimize_qubo(self,
                 X,y,lamda
                 ):
         schedule_list, k_flip, alpha, tau = self.schedule_list, self.k_flip, self.alpha, self.tau
@@ -120,10 +113,10 @@ class SimulatedAnnealing:
                 X,y,lamda
                 ,reps=10):
         if self.mode == "AIC" :
-            optimizer = self.optimize_aic
+            optimizer = self._optimize_aic
             obj = bf.get_aic
         elif self.mode == "QUBO" :
-            optimizer = self.optimize_qubo
+            optimizer = self._optimize_qubo
             obj = bf.get_QB
     
         X = np.asarray(X);y=np.asarray(y)

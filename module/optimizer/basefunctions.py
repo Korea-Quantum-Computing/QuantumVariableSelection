@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.utils import check_random_state
 import random
+import sys
 
 def projection(X):
     X = np.asarray(X)
@@ -22,15 +23,22 @@ def get_QB(theta_temp,Q, beta, lmbd):
     Q = np.asarray(Q)
     theta_temp = np.asarray(theta_temp)
     beta = np.asarray(beta)
-    return lmbd * theta_temp.T @ Q @ theta_temp + (1 - lmbd) * beta.T @ theta_temp
+    res = lmbd*theta_temp.T @ Q @ theta_temp+(1-lmbd)* beta.T @ theta_temp
+    return res
 
-def get_QUBO(X,y, lmbd):
+def get_QUBO(X: list,y: list, lmbd: float) -> float:
     X = np.asarray(X);y = np.asarray(y)
     Q = np.corrcoef(X.T)
     if type(Q) != np.ndarray : Q = np.array([[Q]])
     beta = get_partial_r2(X,y)
     theta_temp = np.ones((X.shape[1],1))
-    return (lmbd * theta_temp.T @ Q @ theta_temp + (1 - lmbd) * beta.T @ theta_temp)[0][0]
+    res = (lmbd * theta_temp.T @ Q @ theta_temp + (1 - lmbd) * beta.T @ theta_temp)[0][0]
+    # try: 
+    #     assert type(res) == 'float'
+    # except Exception as e:
+    #     print('return type should be float!')
+    #     return None
+    return res
 
 def get_CN(X):
     if X.shape[1] <= 1 : return 1
