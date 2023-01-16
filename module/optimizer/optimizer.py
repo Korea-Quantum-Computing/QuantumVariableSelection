@@ -44,31 +44,31 @@ class QuantumAnnealing:
         return self.result
 
 class SimulatedAnnealing:
-    def __init__(self,mode="AIC",
+    def __init__(self,mode="AIC",y_type="linear",
                 schedule_list = [100, 100, 100, 200, 200, 200, 200, 300, 300, 300, 300, 300, 400, 400, 400, 400, 400, 400],
                 k_flip=2,
                 alpha=0.9,
-                tau=1,
-                reps=1
+                tau=1
                 ):
-        self.schedule_list, self.k_flip, self.alpha, self.tau, self.reps = schedule_list, k_flip, alpha, tau, reps
+        self.schedule_list, self.k_flip, self.alpha, self.tau = schedule_list, k_flip, alpha, tau
         self.mode=mode
+        self.y_type=y_type
     
     def _optimize_aic(self,
                 X,y,lamda
                 ):
         schedule_list, k_flip, alpha, tau = self.schedule_list, self.k_flip, self.alpha, self.tau
+        y_type = self.y_type
         theta_list = []
         X = np.asarray(X);y=np.asarray(y)
         n = X.shape[0];p = X.shape[1]
-
         theta_temp = np.random.randint(2,size=p)
         for j in schedule_list:
             for m in range(j):
                 theta_star = bf.flip(k_flip, theta_temp, p)
                 X_star = X[:,theta_star.astype(bool)]
                 X_temp = X[:,theta_temp.astype(bool)]
-                comparison = (bf.get_aic(X_temp,y)-bf.get_aic(X_star,y))/tau/n
+                comparison = (bf.get_aic(X_temp,y,y_type)-bf.get_aic(X_star,y,y_type))/tau/n
                 if comparison > 100 : 
                     theta_temp = theta_star
                 else :
@@ -86,11 +86,11 @@ class SimulatedAnnealing:
                 X,y,lamda
                 ):
         schedule_list, k_flip, alpha, tau = self.schedule_list, self.k_flip, self.alpha, self.tau
+        y_type = self.y_type
         theta_list = []
         X = np.asarray(X);y=np.asarray(y)
         p = X.shape[1]
-        Q,beta = bf.get_selecting_qubo(X,y)
-
+        Q,beta = bf.get_selecting_qubo(X,y,y_type)
         theta_temp = np.random.randint(2,size=p)
         for j in schedule_list:
             for m in range(j):
@@ -103,7 +103,6 @@ class SimulatedAnnealing:
                         theta_temp = theta_star
                 theta_list += [theta_temp]
                 tau = alpha * tau
-        
         result = theta_temp
         self.result = (1.0*np.asarray(result)).tolist()
         self.theta_list = theta_list
@@ -119,6 +118,7 @@ class SimulatedAnnealing:
             optimizer = self._optimize_qubo
             obj = bf.get_QB
     
+        y_type = self.y_type
         X = np.asarray(X);y=np.asarray(y)
         theta_list = []
         for i in range(reps):
@@ -126,7 +126,7 @@ class SimulatedAnnealing:
         if self.mode == "AIC":
             score_list = [obj(X[:,np.array(theta_list[i]).astype(bool)],y) for i in range(reps)]
         if self.mode == "QUBO" :
-            Q,beta = bf.get_selecting_qubo(X,y)
+            Q,beta = bf.get_selecting_qubo(X,y,y_type)
             score_list = [obj(theta_list[i],Q,beta,lamda) for i in range(reps)]
         sampleset = pd.DataFrame(theta_list)
         sampleset["score"] = score_list
@@ -139,6 +139,7 @@ class SimulatedAnnealing:
 class GeneticAlgorithm:
     def __init__(self,
                 mode = "AIC",
+                y_type = "linear",
                 n_gen=100, 
                 n_sol=40, 
                 n_par=20, 
@@ -151,20 +152,23 @@ class GeneticAlgorithm:
         self.mutation_sol_p = 0.02
         self.muation_gene_p = 0.02
         self.mode = mode
+        self.y_type = y_type
+
     def optimize(self,
                 X,y,lamda
                 ):
         n_gen,n_sol,n_par,mutation_sol_p,mutation_gene_p = self.n_gen,self.n_sol,self.n_par,self.mutation_sol_p,self.muation_gene_p
+        y_type = self.y_type
         X = np.asarray(X);y = np.asarray(y)
         n_var = X.shape[1]
         current_population = bf.generate_initial_pop(n_sol, n_var)
         best_score = np.inf
-        
+        Q,beta = bf.get_selecting_qubo(X,y,y_type)
+
         for generation in range(n_gen):
             if self.mode == "AIC":
-                fitness_value_list = np.array([bf.get_aic( X[:, chromosome.astype(bool)], y) for chromosome in current_population])
+                fitness_value_list = np.array([bf.get_aic( X[:, chromosome.astype(bool)], y,y_type) for chromosome in current_population])
             if self.mode == "QUBO":
-                Q,beta = bf.get_selecting_qubo(X,y)
                 fitness_value_list = np.array([bf.get_QB(chromosome,Q,-1*beta,lamda) for chromosome in current_population])                
             
             if fitness_value_list.min() < best_score:
