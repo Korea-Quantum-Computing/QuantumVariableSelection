@@ -18,14 +18,8 @@ def get_aic(X, y,y_type="linear"):
         clf = LogisticRegression().fit(X, y)
         logtheta = clf.predict_log_proba(X)
         loglikelihood = y.T@logtheta[:,0] + (1-y).T@logtheta[:,1]
-        aic = (-2*loglikelihood + 2*p)
+        aic = (2*loglikelihood + 2*p)
     return aic
-
-def get_bic(X, y):
-    X = np.asarray(X);y = np.asarray(y)
-    n = X.shape[0];p = X.shape[1]
-    bic = n*np.log(y.T@(np.identity(n) - projection(X))@y/n) + p*np.log(n)
-    return bic
 
 def get_QB(theta_temp,Q, beta, lmbd):
     Q = np.asarray(Q)
@@ -34,103 +28,25 @@ def get_QB(theta_temp,Q, beta, lmbd):
     res = lmbd*theta_temp.T @ Q @ theta_temp+(1-lmbd)* beta.T @ theta_temp
     return res
 
-def get_QUBO(X: list,y: list, lmbd: float,y_type="linear") -> float:
-    if X.shape[1] == 0 :
-        return 0
-    else:
-        Q,beta = get_selecting_qubo(X,y,y_type)
-        theta_temp = np.ones((X.shape[1],1))
-        res = get_QB(theta_temp,Q,beta,lmbd)[0][0]
-        # try: 
-        #     assert type(res) == 'float'
-        # except Exception as e:
-        #     print('return type should be float!')
-        #     return None
-        return res
+def get_bic(X, y):
+    X = np.asarray(X);y = np.asarray(y)
+    n = X.shape[0];p = X.shape[1]
+    bic = n*np.log(y.T@(np.identity(n) - projection(X))@y/n) + p*np.log(n)
+    return bic
 
-def get_CN(X):
-    if X.shape[1] <= 1 : return 1
-    X = np.asarray(X)
-    eig_list = np.linalg.eig(np.corrcoef(X.T))[0]
-    return np.sqrt(np.max(eig_list)/np.min(eig_list))
-
-def _R2(y_true,y_pred):
-    y_true = np.asarray(y_true);y_pred = np.asarray(y_pred)
-    y_mean = np.mean(y_true)
-    return 1-np.linalg.norm(y_true-y_pred)/np.linalg.norm(y_true-y_mean)
-
-def get_prediction_R2(X,y,ratio=0.8,y_type="linear"):
-    if X.shape[1] ==0 :
-        return 0
-    else :
-        if ratio == 1.0 :
-            clf = LogisticRegression().fit(X, y)
-            logtheta = clf.predict_log_proba(X)
-            loglikelihood_full =  y@logtheta[:,0] + [1-i for i in y]@logtheta[:,1]
-            X_intercept = np.ones((n,1))
-            clf = LogisticRegression().fit(X_intercept, y)
-            logtheta = clf.predict_log_proba(X_intercept)
-            loglikelihood_intercept =  y.T@logtheta[:,0] + (1-y).T@logtheta[:,1]
-            res = 1-(np.exp(loglikelihood_full-loglikelihood_intercept))**(2/n)
-            return res
-        n = X.shape[0]
-        train_index = random.sample(range(n),int(n*ratio))
-        test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
-        X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
-        X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
-        q = X_test.shape[0]
-
-        if y_type == "linear":
-            beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
-            y_pred = X_test@beta_coef
-            res = _R2(y_test,y_pred)
-        elif y_type == "binary":
-            clf = LogisticRegression().fit(X_train, y_train)
-            logtheta = clf.predict_log_proba(X_test)
-            loglikelihood_full =  y_test.T@logtheta[:,0] + (1-y_test).T@logtheta[:,1]
-            X_intercept = np.ones((int(n*ratio),1))
-            clf = LogisticRegression().fit(X_intercept, y_train)
-            X_test_intercept = np.ones((q,1))
-            logtheta = clf.predict_log_proba(X_test_intercept)
-            loglikelihood_intercept =  y_test.T@logtheta[:,0] + (1-y_test).T@logtheta[:,1]
-            res = 1-(np.exp(loglikelihood_full-loglikelihood_intercept))**(2/n)[0]
-        return res
-
-def MSE(y_true,y_pred):
-    y_true = np.asarray(y_true);y_pred = np.asarray(y_pred)
-    n = y_true.shape[0]
-    return np.linalg.norm(y_true-y_pred)/n
-
-def get_MSPE(X,y,ratio=0.8):
-    if ratio == 1.0 :
-        beta_coef = np.linalg.inv(X.T@X)@X.T@y
-        y_pred = X@beta_coef
-        return MSE(y,y_pred)  
-    n = X.shape[0]
-    train_index = random.sample(range(n),int(n*ratio))
-    test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
-    X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
-    X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
-    beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
-    y_pred = X_test@beta_coef
-    return MSE(y_test,y_pred)
-
-def get_accuracy(X,y,ratio=0.8):
-    if X.shape[1] ==0 :
-        return 0
-    else :
-        if ratio == 1.0 :
-            clf = LogisticRegression().fit(X, y)
-            res = clf.score(X,y)
-            return res  
-        n = X.shape[0]
-        train_index = random.sample(range(n),int(n*ratio))
-        test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
-        X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
-        X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
-        clf = LogisticRegression().fit(X_train, y_train)
-        res = clf.score(X_test,y_test)
-        return res
+def get_simple_r2(X,y):
+    X = np.asarray(X);y = np.asarray(y).reshape(-1)
+    n = X.shape[0];p = X.shape[1]+1
+    X_pre = np.concatenate([np.ones((n,1)),X],axis=1)
+    SSRF = y.T@(np.identity(n) - projection(X_pre))@y/np.cov(y)
+    SSRP = []
+    for i in range(1,p):
+        index = [j for j in range(p)]
+        index = index[:i]+index[i+1:]
+        X_temp = X_pre[:,index]
+        SSRP += [y.T@(np.identity(n) - projection(X_temp))@y/np.cov(y)]
+    result = np.array(SSRP)**(-1)*SSRF
+    return 1-result
 
 def get_partial_r2(X,y):
     X = np.asarray(X);y = np.asarray(y).reshape(-1)
@@ -146,7 +62,7 @@ def get_partial_r2(X,y):
     result = np.array(SSRP)**(-1)*SSRF
     return 1-result
 
-def get_r_likelihood(X,y,mode = "partial",type = "tjur"):
+def get_r_likelihood(X,y,mode = "partial",type = "cox"):
     X = np.asarray(X);y = np.asarray(y)
     n=X.shape[0];p = X.shape[1]
     loglikelihood = []
@@ -193,8 +109,111 @@ def get_selecting_qubo(X,y,y_type = "linear") :
     if y_type == "linear":
         beta = get_partial_r2(X,y)
     elif y_type == "binary":
-        beta = get_r_likelihood(X,y,mode="partial",type="tjur")
+        beta = get_r_likelihood(X,y,mode="partial",type="cox")
     return Q,beta
+
+
+########################################################################################################################################################
+
+def get_QUBO(X: list,y: list, lmbd: float,y_type="linear") -> float:
+    if X.shape[1] == 0 :
+        return 0
+    else:
+        Q,beta = get_selecting_qubo(X,y,y_type)
+        theta_temp = np.ones((X.shape[1],1))
+        res = get_QB(theta_temp,Q,beta,lmbd)[0][0]
+        # try: 
+        #     assert type(res) == 'float'
+        # except Exception as e:
+        #     print('return type should be float!')
+        #     return None
+        return res
+
+def get_CN(X):
+    if X.shape[1] <= 1 : return 1
+    X = np.asarray(X)
+    eig_list = np.linalg.eig(np.corrcoef(X.T))[0]
+    return np.sqrt(np.max(eig_list)/np.min(eig_list))
+
+def _R2(y_true,y_pred):
+    y_true = np.asarray(y_true);y_pred = np.asarray(y_pred)
+    y_mean = np.mean(y_true)
+    return 1-np.linalg.norm(y_true-y_pred)/np.linalg.norm(y_true-y_mean)
+
+def get_prediction_R2(X,y,ratio=0.8,y_type="linear"):
+    if X.shape[1] == 0.0 :
+        return 0.0
+    else :
+        if ratio == 1.0 :
+            clf = LogisticRegression().fit(X, y)
+            logtheta = clf.predict_log_proba(X)
+            loglikelihood_full =  y@logtheta[:,0] + [1-i for i in y]@logtheta[:,1]
+            X_intercept = np.ones((n,1))
+            clf = LogisticRegression().fit(X_intercept, y)
+            logtheta = clf.predict_log_proba(X_intercept)
+            loglikelihood_intercept =  y.T@logtheta[:,0] + (1-y).T@logtheta[:,1]
+            res = 1-(np.exp(loglikelihood_full-loglikelihood_intercept))**(2/n)
+            return res
+        n = X.shape[0]
+        train_index = random.sample(range(n),int(n*ratio))
+        test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
+        X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
+        X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
+        q = X_test.shape[0]
+
+        if y_type == "linear":
+            beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
+            y_pred = X_test@beta_coef
+            res = _R2(y_test,y_pred)
+        elif y_type == "binary":
+            clf = LogisticRegression().fit(X_train, y_train)
+            logtheta = clf.predict_log_proba(X_test)
+            loglikelihood_full =  y_test.T@logtheta[:,0] + (1-y_test).T@logtheta[:,1]
+            X_intercept = np.ones((int(n*ratio),1))
+            clf = LogisticRegression().fit(X_intercept, y_train)
+            X_test_intercept = np.ones((q,1))
+            logtheta = clf.predict_log_proba(X_test_intercept)
+            loglikelihood_intercept =  y_test.T@logtheta[:,0] + (1-y_test).T@logtheta[:,1]
+            res = 1-(np.exp(loglikelihood_full-loglikelihood_intercept))**(2/n)
+        return res[0]
+
+def MSE(y_true,y_pred):
+    y_true = np.asarray(y_true);y_pred = np.asarray(y_pred)
+    n = y_true.shape[0]
+    return np.linalg.norm(y_true-y_pred)/n
+
+def get_MSPE(X,y,ratio=0.8):
+    if ratio == 1.0 :
+        beta_coef = np.linalg.inv(X.T@X)@X.T@y
+        y_pred = X@beta_coef
+        return MSE(y,y_pred)  
+    n = X.shape[0]
+    train_index = random.sample(range(n),int(n*ratio))
+    test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
+    X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
+    X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
+    beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
+    y_pred = X_test@beta_coef
+    return MSE(y_test,y_pred)
+
+def get_accuracy(X,y,ratio=0.8):
+    if X.shape[1] ==0 :
+        return 0
+    else :
+        if ratio == 1.0 :
+            clf = LogisticRegression().fit(X, y)
+            res = clf.score(X,y)
+            return res  
+        n = X.shape[0]
+        train_index = random.sample(range(n),int(n*ratio))
+        test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
+        X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
+        X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
+        clf = LogisticRegression().fit(X_train, y_train)
+        res = clf.score(X_test,y_test)
+        return res
+
+################################################################################################################################################################
 
 def generate_dependent_sample(n_samples=500, n_features=10, beta_coef =[4,3,2,2],epsilon=4,covariance_parameter=1, random_state=None):
     rng = check_random_state(random_state)
@@ -230,6 +249,10 @@ def generate_dependent_sample_logistic(n_samples=500, n_features=10, beta_coef =
     prob = (1+np.exp(6*theta/np.max(theta)))**(-1)
     y = np.array([(np.random.rand()<i)*1.0 for i in prob]).reshape((n_samples,))
     return X, y
+
+
+################################################################################################################################################################
+
 
 def get_bin(x, p):
     '''
@@ -301,3 +324,5 @@ def mutation(child, p, n_var):
             child[index] = 1 - child[index]
     return child
 
+
+################################################################################################################################################################
