@@ -34,18 +34,17 @@ def get_bic(X, y):
     bic = n*np.log(y.T@(np.identity(n) - projection(X))@y/n) + p*np.log(n)
     return bic
 
+
 def get_simple_r2(X,y):
     X = np.asarray(X);y = np.asarray(y).reshape(-1)
     n = X.shape[0];p = X.shape[1]+1
     X_pre = np.concatenate([np.ones((n,1)),X],axis=1)
-    SSRF = y.T@(np.identity(n) - projection(X_pre))@y/np.cov(y)
+    SSRF = y.T@(np.identity(n) - projection(np.ones((n,1))))@y
     SSRP = []
     for i in range(1,p):
-        index = [j for j in range(p)]
-        index = index[:i]+index[i+1:]
-        X_temp = X_pre[:,index]
-        SSRP += [y.T@(np.identity(n) - projection(X_temp))@y/np.cov(y)]
-    result = np.array(SSRP)**(-1)*SSRF
+        X_temp = X_pre[:,[0,i]]
+        SSRP += [y.T@(np.identity(n) - projection(X_temp))@y]
+    result = np.array(SSRP)*SSRF**(-1)
     return 1-result
 
 def get_partial_r2(X,y):
