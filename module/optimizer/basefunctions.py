@@ -8,6 +8,35 @@ def projection(X):
     X = np.asarray(X)
     return X@np.linalg.inv(X.T@X)@X.T
 
+def mutual_information(x1,x2,bins=10):
+    n = len(x1)
+    pr1 = np.histogram(x1,bins=bins)[0]/n+10**(-8)
+    pr2 = np.histogram(x2,bins=bins)[0]/n+10**(-8)
+    joint = np.histogram2d(x1,x2,bins=bins)[0]/n+10**(-8)
+    joint_indep = np.outer(pr1,pr2)
+    mi = 0
+    for i in range(bins) :
+        for j in range(bins) :
+            mi += joint[i,j]*np.log(joint[i,j]/joint_indep[i,j])
+    return mi
+    
+def mutual_information_matrix(X,y=None,bins=10):
+    if  type(y) != np.ndarray :
+        X = np.asarray(X)
+        p = X.shape[1]
+        mi_matrix = np.ones((p,p))
+        for i in range(p):
+            for j in range(p):
+                mi_matrix[i,j] = mutual_information(X[:,i],X[:,j],bins) 
+        return mi_matrix
+    else :
+        X = np.asarray(X); y = np.asarray(y)
+        p = X.shape[1]
+        mi_vector = np.ones((p))        
+        for i in range(p):
+            mi_vector[i] = mutual_information(X[:,i],y,bins)
+        return mi_vector 
+
 def get_aic(X, y,y_type="linear"):
     X = np.asarray(X);y = np.asarray(y)
     n = X.shape[0];p = X.shape[1]
@@ -35,7 +64,7 @@ def get_bic(X, y):
     return bic
 
 
-def get_simple_r2(X,y):
+def get_full_r2(X,y):
     X = np.asarray(X);y = np.asarray(y).reshape(-1)
     n = X.shape[0];p = X.shape[1]+1
     X_pre = np.concatenate([np.ones((n,1)),X],axis=1)
@@ -102,13 +131,35 @@ def get_r_likelihood(X,y,mode = "partial",type = "cox"):
     return res
 
 
-def get_selecting_qubo(X,y,y_type = "linear") :
+def get_selecting_qubo(X,y,y_type = "linear",measure = "mi") :
+    if y_type not in ["linear","binary"] :
+        raise Exception("y type should be 'linear' or 'binary'")
+    if measure not in ["mi","full","partial"] :
+        raise Exception("measure should be 'mi','full' or ' partial'")
+
     X = np.asarray(X);y = np.asarray(y)
-    Q = np.corrcoef(X.T)
     if y_type == "linear":
-        beta = get_partial_r2(X,y)
+        if measure == "mi":
+            Q = mutual_information_matrix(X)
+            beta = mutual_information_matrix(X,y)
+        if measure == "full":
+            Q = np.abs(np.corrcoef(X.T))
+            beta = get_full_r2(X,y)
+        if measure == "partial":
+            Q = np.abs(np.corrcoef(X.T))
+            beta = get_partial_r2(X,y)
+
     elif y_type == "binary":
-        beta = get_r_likelihood(X,y,mode="partial",type="cox")
+        if measure == "mi":
+            Q = mutual_information_matrix(X)
+            beta = mutual_information_matrix(X,y)
+        if measure == "full":
+            Q = np.abs(np.corrcoef(X.T))
+            beta = get_r_likelihood(X,y,mode="full",type="cox")
+        if measure == "partial":
+            Q = np.abs(np.corrcoef(X.T))
+            beta = get_r_likelihood(X,y,mode="partial",type="cox")
+
     return Q,beta
 
 
@@ -152,6 +203,8 @@ def get_prediction_R2(X,y,ratio=0.8,y_type="linear"):
             logtheta = clf.predict_log_proba(X_intercept)
             loglikelihood_intercept =  y.T@logtheta[:,0] + (1-y).T@logtheta[:,1]
             res = 1-(np.exp(loglikelihood_full-loglikelihood_intercept))**(2/n)
+            while type(res) == np.array :
+                res = res[0]
             return res
         n = X.shape[0]
         train_index = random.sample(range(n),int(n*ratio))
@@ -174,7 +227,9 @@ def get_prediction_R2(X,y,ratio=0.8,y_type="linear"):
             logtheta = clf.predict_log_proba(X_test_intercept)
             loglikelihood_intercept =  y_test.T@logtheta[:,0] + (1-y_test).T@logtheta[:,1]
             res = 1-(np.exp(loglikelihood_full-loglikelihood_intercept))**(2/n)
-        return res[0]
+        while type(res) == np.array :
+            res = res[0]
+        return res
 
 def MSE(y_true,y_pred):
     y_true = np.asarray(y_true);y_pred = np.asarray(y_pred)

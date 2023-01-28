@@ -44,7 +44,7 @@ class QuantumAnnealing:
         return self.result
 
 class SimulatedAnnealing:
-    def __init__(self,mode="AIC",y_type="linear",
+    def __init__(self,mode="AIC",y_type="linear",measure="mi",
                 schedule_list = [100, 100, 100, 200, 200, 200, 200, 300, 300, 300, 300, 300, 400, 400, 400, 400, 400, 400],
                 k_flip=2,
                 alpha=0.9,
@@ -53,6 +53,7 @@ class SimulatedAnnealing:
         self.schedule_list, self.k_flip, self.alpha, self.tau = schedule_list, k_flip, alpha, tau
         self.mode=mode
         self.y_type=y_type
+        self.measure = measure
     
     def _optimize_aic(self,
                 X,y,lamda
@@ -87,10 +88,11 @@ class SimulatedAnnealing:
                 ):
         schedule_list, k_flip, alpha, tau = self.schedule_list, self.k_flip, self.alpha, self.tau
         y_type = self.y_type
+        measure = self.measure
         theta_list = []
         X = np.asarray(X);y=np.asarray(y)
         p = X.shape[1]
-        Q,beta = bf.get_selecting_qubo(X,y,y_type)
+        Q,beta = bf.get_selecting_qubo(X,y,y_type = y_type,measure=measure)
         theta_temp = np.random.randint(2,size=p)
         for j in schedule_list:
             for m in range(j):
