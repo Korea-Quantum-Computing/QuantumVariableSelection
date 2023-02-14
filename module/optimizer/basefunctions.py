@@ -2,7 +2,11 @@ import numpy as np
 from sklearn.utils import check_random_state
 import random
 import sys
+import warnings
 from sklearn.linear_model import LogisticRegression
+from sklearn.exceptions import ConvergenceWarning
+
+
 
 def projection(X):
     X = np.asarray(X)
@@ -38,6 +42,9 @@ def mutual_information_matrix(X,y=None,bins=10):
         return mi_vector 
 
 def get_aic(X, y,y_type="linear"):
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
     X = np.asarray(X);y = np.asarray(y)
     n = X.shape[0];p = X.shape[1]
     if y_type == "linear" :
@@ -91,14 +98,18 @@ def get_partial_r2(X,y):
     return 1-result
 
 def get_r_likelihood(X,y,mode = "partial",type = "cox"):
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
     X = np.asarray(X);y = np.asarray(y)
     n=X.shape[0];p = X.shape[1]
+    X = np.concatenate([X,np.ones((n,1))],axis=1)
     loglikelihood = []
     for i in range(p):
         if mode=="partial" : 
-            X_temp = X[:,[ i != j  for j in range(p)]]
+            X_temp = X[:,[True]+[ i != j  for j in range(p)]]
         elif mode == "full" : 
-            X_temp = X[:,i:i+1]
+            X_temp = X[:,[True]+[ i == j  for j in range(p)]]
         clf = LogisticRegression().fit(X_temp, y)
         logtheta = clf.predict_log_proba(X_temp)
         loglikelihood += [y.T@logtheta[:,0] + (1-y).T@logtheta[:,1]]
@@ -114,21 +125,23 @@ def get_r_likelihood(X,y,mode = "partial",type = "cox"):
         if type == "mcf":
             res =  (1-loglikelihood/loglikelihood_full)
         elif type == "cox" :
-            res =   1-(np.exp(loglikelihood_full-loglikelihood))**(2/n)
+            res =   1-np.exp((loglikelihood_full-loglikelihood)*(2/n))
         elif type == "tjur" :
             res1 =  (1-loglikelihood/loglikelihood_full)
-            res2 =   1-(np.exp(loglikelihood_full-loglikelihood))**(2/n)
+            res2 =   1-np.exp((loglikelihood_full-loglikelihood)*(2/n))
             res =  1/(1/res1+1/res2)
     elif mode == "full" :
         if type == "mcf":
             res =  (1-loglikelihood_full/loglikelihood)
         elif type == "cox" :
-            res =   1-(np.exp(loglikelihood-loglikelihood_full))**(2/n)
+            res =   1-np.exp((loglikelihood-loglikelihood_full)*(2/n))
         elif type == "tjur" :
             res1 =  (1-loglikelihood_full/loglikelihood)
-            res2 =   1-(np.exp(loglikelihood-loglikelihood_full))**(2/n)
+            res2 =   1-np.exp((loglikelihood-loglikelihood_full)*(2/n))
             res =  1/(1/res1+1/res2)
     return res
+
+
 
 
 def get_selecting_qubo(X,y,y_type = "linear",measure = "mi") :
@@ -209,8 +222,8 @@ def get_prediction_R2(X,y,ratio=0.8,y_type="linear"):
         n = X.shape[0]
         train_index = random.sample(range(n),int(n*ratio))
         test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
-        X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
-        X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
+        X_train = X[train_index,:];y_train = y[train_index].reshape((-1,))
+        X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,))
         q = X_test.shape[0]
 
         if y_type == "linear":
@@ -227,7 +240,7 @@ def get_prediction_R2(X,y,ratio=0.8,y_type="linear"):
             logtheta = clf.predict_log_proba(X_test_intercept)
             loglikelihood_intercept =  y_test.T@logtheta[:,0] + (1-y_test).T@logtheta[:,1]
             res = 1-(np.exp(loglikelihood_full-loglikelihood_intercept))**(2/n)
-        while type(res) == np.array :
+        while type(res) == np.ndarray :
             res = res[0]
         return res
 
@@ -244,15 +257,15 @@ def get_MSPE(X,y,ratio=0.8):
     n = X.shape[0]
     train_index = random.sample(range(n),int(n*ratio))
     test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
-    X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
-    X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
+    X_train = X[train_index,:];y_train = y[train_index].reshape((-1,))
+    X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,))
     beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
     y_pred = X_test@beta_coef
     return MSE(y_test,y_pred)
 
 def get_accuracy(X,y,ratio=0.8):
     if X.shape[1] ==0 :
-        return 0
+        return 0.5
     else :
         if ratio == 1.0 :
             clf = LogisticRegression().fit(X, y)
@@ -261,8 +274,8 @@ def get_accuracy(X,y,ratio=0.8):
         n = X.shape[0]
         train_index = random.sample(range(n),int(n*ratio))
         test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
-        X_train = X[train_index,:];y_train = y[train_index].reshape((-1,1))
-        X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,1))
+        X_train = X[train_index,:];y_train = y[train_index].reshape((-1,))
+        X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,))
         clf = LogisticRegression().fit(X_train, y_train)
         res = clf.score(X_test,y_test)
         return res
@@ -275,7 +288,7 @@ def generate_dependent_sample(n_samples=500, n_features=10, beta_coef =[4,3,2,2]
         raise ValueError("`n_features` must be >= 4. "
                             "Got n_features={0}".format(n_features))
     v = rng.normal(0, 0.4, (n_features, n_features))
-    mean = np.zeros(n_features)
+    mean = np.zeros(n_features)+5
     cov = v @ v.T*covariance_parameter + 0.1 * np.identity(n_features)
     X = rng.multivariate_normal(mean, cov, n_samples)
     n_informative = len(beta_coef)
@@ -298,9 +311,9 @@ def generate_dependent_sample_logistic(n_samples=500, n_features=10, beta_coef =
     beta = np.hstack((
         beta_coef, np.zeros(n_features - n_informative)))
     theta = np.dot(X, beta)
+    theta += -1*np.mean(theta)
     theta += epsilon * rng.randn(n_samples)
-    theta = theta - np.mean(theta)
-    prob = (1+np.exp(6*theta/np.max(theta)))**(-1)
+    prob = (1+np.exp(20*theta/np.max(theta)))**(-1)
     y = np.array([(np.random.rand()<i)*1.0 for i in prob]).reshape((n_samples,))
     return X, y
 
