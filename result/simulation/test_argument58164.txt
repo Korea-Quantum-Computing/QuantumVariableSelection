@@ -1,0 +1,9 @@
+{
+  "number_samples": 1000,
+  "number_features": 100,
+  "number_influentials": 20,
+  "epsilon": 30,
+  "covariance_parameter": 1,
+  "lmbd": 0.1,
+  "number_of_test": 100
+}
