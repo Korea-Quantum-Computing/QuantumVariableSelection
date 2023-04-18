@@ -45,7 +45,7 @@ class QuantumAnnealing:
 
 class SimulatedAnnealing:
     def __init__(self,mode="AIC",y_type="linear",measure="mi",
-                schedule_list = [100, 100, 100, 200, 200, 200, 200, 300, 300, 300, 300, 300, 400, 400, 400, 400, 400, 400],
+                schedule_list = [200, 200, 200, 200, 200, 200, 200, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400],
                 k_flip=2,
                 alpha=0.9,
                 tau=1
@@ -56,35 +56,53 @@ class SimulatedAnnealing:
         self.measure = measure
     
     def _optimize_aic(self,
-                X,y,lamda
+                X,y,lamda,n_features=None
                 ):
         schedule_list, k_flip, alpha, tau = self.schedule_list, self.k_flip, self.alpha, self.tau
         y_type = self.y_type
         theta_list = []
         X = np.asarray(X);y=np.asarray(y)
         n = X.shape[0];p = X.shape[1]
-        theta_temp = np.random.randint(2,size=p)
-        for j in schedule_list:
-            for m in range(j):
-                theta_star = bf.flip(k_flip, theta_temp, p)
-                X_star = X[:,theta_star.astype(bool)]
-                X_temp = X[:,theta_temp.astype(bool)]
-                comparison = (bf.get_aic(X_temp,y,y_type)-bf.get_aic(X_star,y,y_type))/tau/n
-                if comparison > 100 : 
-                    theta_temp = theta_star
-                else :
-                    if np.random.rand(1) <= min(1, np.exp(comparison)):
-                        theta_temp = theta_star
-                theta_list += [theta_temp]
-                tau = alpha * tau
         
+        if n_features == None :
+            theta_temp = np.random.randint(2,size=p)
+            for j in schedule_list:
+                for m in range(j):
+                    theta_star = bf.flip(k_flip, theta_temp, p)
+                    X_star = X[:,theta_star.astype(bool)]
+                    X_temp = X[:,theta_temp.astype(bool)]
+                    comparison = (bf.get_aic(X_temp,y,y_type)-bf.get_aic(X_star,y,y_type))/tau/n
+                    if comparison > 100 : 
+                        theta_temp = theta_star
+                    else :
+                        if np.random.rand(1) <= min(1, np.exp(comparison)):
+                            theta_temp = theta_star
+                    theta_list += [theta_temp]
+                    tau = alpha * tau
+        else :
+            theta_temp = np.zeros(p)
+            theta_temp[np.random.choice(range(p),n_features)] = 1
+            for j in schedule_list:
+                for m in range(j):
+                    theta_star = bf.flip2(k_flip, theta_temp, p)
+                    X_star = X[:,theta_star.astype(bool)]
+                    X_temp = X[:,theta_temp.astype(bool)]
+                    comparison = (bf.get_aic(X_temp,y,y_type)-bf.get_aic(X_star,y,y_type))/tau/n
+                    if comparison > 100 : 
+                        theta_temp = theta_star
+                    else :
+                        if np.random.rand(1) <= min(1, np.exp(comparison)):
+                            theta_temp = theta_star
+                    theta_list += [theta_temp]
+                    tau = alpha * tau
+
         result = theta_temp
         self.result = (1.0*np.asarray(result)).tolist()
         self.theta_list = theta_list
         return self.result
 
     def _optimize_qubo(self,
-                X,y,lamda
+                X,y,lamda,n_features=None
                 ):
         schedule_list, k_flip, alpha, tau = self.schedule_list, self.k_flip, self.alpha, self.tau
         y_type = self.y_type
@@ -93,18 +111,34 @@ class SimulatedAnnealing:
         X = np.asarray(X);y=np.asarray(y)
         p = X.shape[1]
         Q,beta = bf.get_selecting_qubo(X,y,y_type = y_type,measure=measure)
-        theta_temp = np.random.randint(2,size=p)
-        for j in schedule_list:
-            for m in range(j):
-                theta_star = bf.flip(k_flip, theta_temp, p)
-                comparison = (bf.get_QB(theta_temp,Q,-1*beta,lamda)-bf.get_QB(theta_star,Q,-1*beta,lamda))/tau
-                if comparison > 100 :
-                    theta_temp = theta_star
-                else:
-                    if np.random.rand(1) <= min(1, np.exp(comparison)):
+
+        if n_features == None :
+            theta_temp = np.random.randint(2,size=p)
+            for j in schedule_list:
+                for m in range(j):
+                    theta_star = bf.flip(k_flip, theta_temp, p)
+                    comparison = (bf.get_QB(theta_temp,Q,-1*beta,lamda)-bf.get_QB(theta_star,Q,-1*beta,lamda))/tau
+                    if comparison > 100 :
                         theta_temp = theta_star
-                theta_list += [theta_temp]
-                tau = alpha * tau
+                    else:
+                        if np.random.rand(1) <= min(1, np.exp(comparison)):
+                            theta_temp = theta_star
+                    theta_list += [theta_temp]
+                    tau = alpha * tau
+        else : 
+            theta_temp = np.zeros(p)
+            theta_temp[np.random.choice(range(p),n_features,replace=False)] = 1
+            for j in schedule_list:
+                for m in range(j):
+                    theta_star = bf.flip2(k_flip, theta_temp, p)
+                    comparison = (bf.get_QB(theta_temp,Q,-1*beta,lamda)-bf.get_QB(theta_star,Q,-1*beta,lamda))/tau
+                    if comparison > 100 :
+                        theta_temp = theta_star
+                    else:
+                        if np.random.rand(1) <= min(1, np.exp(comparison)):
+                            theta_temp = theta_star
+                    theta_list += [theta_temp]
+                    tau = alpha * tau
         result = theta_temp
         self.result = (1.0*np.asarray(result)).tolist()
         self.theta_list = theta_list
@@ -112,7 +146,7 @@ class SimulatedAnnealing:
 
     def optimize(self,
                 X,y,lamda
-                ,reps=10):
+                ,reps=10,n_features=None):
         if self.mode == "AIC" :
             optimizer = self._optimize_aic
             obj = bf.get_aic
@@ -124,7 +158,7 @@ class SimulatedAnnealing:
         X = np.asarray(X);y=np.asarray(y)
         theta_list = []
         for i in range(reps):
-            theta_list += [optimizer(X,y,lamda)]
+            theta_list += [optimizer(X,y,lamda,n_features)]
         if self.mode == "AIC":
             score_list = [obj(X[:,np.array(theta_list[i]).astype(bool)],y) for i in range(reps)]
         if self.mode == "QUBO" :

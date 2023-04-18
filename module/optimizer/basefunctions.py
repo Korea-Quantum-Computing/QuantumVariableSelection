@@ -230,6 +230,7 @@ def get_prediction_R2(X,y,ratio=0.8,y_type="linear"):
             beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
             y_pred = X_test@beta_coef
             res = _R2(y_test,y_pred)
+
         elif y_type == "binary":
             clf = LogisticRegression().fit(X_train, y_train)
             logtheta = clf.predict_log_proba(X_test)
@@ -243,6 +244,23 @@ def get_prediction_R2(X,y,ratio=0.8,y_type="linear"):
         while type(res) == np.ndarray :
             res = res[0]
         return res
+
+def get_cv_r2(X_df,Y_df):
+    X_df = np.asarray(X_df);Y_df = np.asarray(Y_df)
+    n = X_df.shape[0] - X_df.shape[0]%5
+    index = np.random.choice(range(n),n,replace=False).reshape(5,-1)
+    res = []
+    for i in range(5):
+        index_train = [True,True,True,True,True]
+        index_train[i] = False
+        X_test = X_df[index[i],:]
+        y_test = Y_df[index[i]]
+        X_train = X_df[index[index_train].reshape(-1),:]
+        y_train = Y_df[index[index_train].reshape(-1)]
+        beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
+        y_pred = X_test@beta_coef
+        res += [_R2(y_test,y_pred)]
+    return np.mean(np.array(res))
 
 def MSE(y_true,y_pred):
     y_true = np.asarray(y_true);y_pred = np.asarray(y_pred)
