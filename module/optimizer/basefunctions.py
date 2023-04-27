@@ -103,7 +103,7 @@ def get_r_likelihood(X,y,mode = "partial",type = "cox"):
 
     X = np.asarray(X);y = np.asarray(y)
     n=X.shape[0];p = X.shape[1]
-    X = np.concatenate([X,np.ones((n,1))],axis=1)
+    X = np.concatenate([np.ones((n,1)),X],axis=1)
     loglikelihood = []
     for i in range(p):
         if mode=="partial" : 
