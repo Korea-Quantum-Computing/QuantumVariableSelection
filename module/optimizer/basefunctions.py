@@ -5,8 +5,7 @@ import sys
 import warnings
 from sklearn.linear_model import LogisticRegression
 from sklearn.exceptions import ConvergenceWarning
-
-
+from sklearn.model_selection import cross_val_score
 
 def projection(X):
     X = np.asarray(X)
@@ -267,19 +266,23 @@ def MSE(y_true,y_pred):
     n = y_true.shape[0]
     return np.linalg.norm(y_true-y_pred)/n
 
-def get_MSPE(X,y,ratio=0.8):
-    if ratio == 1.0 :
-        beta_coef = np.linalg.inv(X.T@X)@X.T@y
-        y_pred = X@beta_coef
-        return MSE(y,y_pred)  
-    n = X.shape[0]
-    train_index = random.sample(range(n),int(n*ratio))
-    test_index = list(filter(None,np.array([None if i in train_index else i for i in range(n)])))
-    X_train = X[train_index,:];y_train = y[train_index].reshape((-1,))
-    X_test = X[test_index,:] ; y_test = y[test_index].reshape((-1,))
-    beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
-    y_pred = X_test@beta_coef
-    return MSE(y_test,y_pred)
+def get_MSPE(X_df,Y_df):
+    X_df = np.asarray(X_df);Y_df = np.asarray(Y_df)
+    X_df = np.concatenate([np.ones((X_df.shape[0],1)),X_df],axis=1)
+    n = X_df.shape[0] - X_df.shape[0]%5
+    index = np.random.choice(range(n),n,replace=False).reshape(5,-1)
+    res = []
+    for i in range(5):
+        index_train = [True,True,True,True,True]
+        index_train[i] = False
+        X_test = X_df[index[i],:]
+        y_test = Y_df[index[i]]
+        X_train = X_df[index[index_train].reshape(-1),:]
+        y_train = Y_df[index[index_train].reshape(-1)]
+        beta_coef = np.linalg.inv(X_train.T@X_train)@X_train.T@y_train
+        y_pred = X_test@beta_coef
+        res += [MSE(y_test,y_pred)]
+    return np.mean(np.array(res))
 
 def get_accuracy(X,y,ratio=0.8):
     if X.shape[1] ==0 :
@@ -297,6 +300,21 @@ def get_accuracy(X,y,ratio=0.8):
         clf = LogisticRegression().fit(X_train, y_train)
         res = clf.score(X_test,y_test)
         return res
+
+def get_accuracy_cv(X,y):
+    clf = LogisticRegression()
+    scores = np.mean(cross_val_score(clf, X, y, cv=5))
+    return scores
+
+def get_neg_entropy_cv(X,y):
+    clf = LogisticRegression()
+    scores = -np.mean(cross_val_score(clf, X, y,scoring="neg_log_loss", cv=5))
+    return scores
+
+def get_f1_cv(X,y):
+    clf = LogisticRegression()
+    scores = np.mean(cross_val_score(clf, X, y,scoring="f1", cv=5))
+    return scores
 
 ################################################################################################################################################################
 
